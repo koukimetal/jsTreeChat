@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Insert title here</title>
+<script
+	src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.12.1/jquery.min.js"></script>
+<link rel="stylesheet"
+	href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.1/themes/default/style.min.css" />
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.2/components/core-min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.2/components/sha256-min.js"></script>
+<script
+	src="jstree.js"></script>
+</head>
+<body>
+	<input type="text" id="username" placeholder="USERNAME" ></input>
+	<input type="password" id="password" placeholder="PASSWORD" ></input>
+	<div id="root"></div>
+	<script>
+		$('#root').jstree({
+			'core' : {
+				"check_callback" : true,
+				'data' : {
+					'url' : function(node) {
+						return "core.php?p=" + node.id;
+					}
+				}
+			},
+			contextmenu : {
+				items : function (o, cb) { // Could be an object directly
+					return {
+						"write" : {
+							"separator_before"	: false,
+							"separator_after"	: true,
+							"_disabled"			: false,
+							"label"				: "Write",
+							"action"			: function (data) {
+								var inst = $.jstree.reference(data.reference),
+									obj = inst.get_node(data.reference);
+								inst.create_node(obj, {}, "first", function (new_node) {
+									setTimeout(function () { inst.edit(new_node, null, makeNewNode) } ,0);
+								});
+							}
+						},
+					}
+				},
+			},
+			"plugins" : [ "contextmenu" ]
+		});
+		var makeNewNode = function(node) {
+			console.log(node);
+			localStorage.setItem('username', $("#username").val());
+			localStorage.setItem('password', $("#password").val());
+			$.post("core.php", 
+				{action : 'write',
+				parentId : node.parent,
+				textContent : node.text,
+				username : $("#username").val(),
+				password : makeHash($("#password").val()),
+				},
+				function(data){
+					console.log("parentId", node.parent);
+					var inst = $.jstree.reference(node.parent),
+					obj = inst.get_node(node.parent);
+					$('#root').jstree().refresh_node(obj);
+					console.log("inst", inst);
+					console.log("obj", obj);
+					console.log("data", data);
+					console.log("pw", $("#password").val());
+					var hash =　makeHash($("#password").val());
+				},
+				"json"
+			);
+	    }
+		
+		var saveLocalStorage = function(username, password) {
+			localStorage.setItem("name", username);
+			localStorage.setItem("pass", password);
+		}
+		
+		var makeHash = function(str) {
+			var hash = CryptoJS.SHA256(str);
+			console.log(hash.toString(CryptoJS.enc.Hex));
+		}
+
+		//load
+		$(function(){
+			$("#username").val(localStorage.getItem("name"));
+			$("#password").val(localStorage.getItem("pass"));
+		});
+	</script>
+
+</body>
+</html>
