@@ -9,14 +9,46 @@ if ($action === 'write') {
 	$textContent = $_POST ['textContent'];
 	$username = $_POST ['username'];
 	$password = $_POST ['password'];
-	
-	write($parentId, $username, $password, "comment", $textContent);
+
 	header ( "Content-Type: application/json; charset=utf-8" );
-	echo '{ "data" : "done"}';
+	if (invalid($parentId, $textContent)) {
+		$resp['message'] = "failed, parentId or text are wrong";
+		echo json_encode($resp);
+		return;
+	}
+	
+	write($parentId, $username, $password, 'comment', $textContent);
+
+	$resp['message'] = 'success';
+	echo json_encode($resp);
+	return;
+} else if ($action === 'edit') {
+	$id = $_POST ['id'];
+	$newContent = $_POST ['textContent'];
+	$password = $_POST ['password'];
+
+	header ( "Content-Type: application/json; charset=utf-8" );
+
+	if (invalid($id, $newContent)) {
+		$resp['message'] = "failed, parentId or text are wrong";
+		echo json_encode($resp);
+		return;
+	}
+
+	$resp['message'] = edit($id, $password, $newContent);
+	echo json_encode($resp);
 	return;
 }
 
+function invalid($id, $content) {
+	return $id < 0 || $content == "";
+}
+
 $parent = $_GET ['p'];
+
+if ($parent < 0) {
+	return;
+}
 if (is_numeric ( $parent ) && ctype_digit ( $parent )) {
 	$resp = read($parent);
 	header ( "Content-Type: application/json; charset=utf-8" );
@@ -43,14 +75,38 @@ function getDBH() {
 }
 
 //TODO implement type
-//TODO check security
-//TODO implement search
-//TODO implement delete
+//TODO WISH implement search
+
+function edit($id, $sentPass, $newContent) {
+	$dbh = getDBH();
+	$stmt = $dbh->prepare("SELECT `id`, `pass` FROM `" .TABLE_NAME ."` "
+		."WHERE `id` == :id");
+	$stmt->bindParam(':id', $id, PDO::PARAM_INT);
+	$stmt->execute();
+	$result = $stmt->fetchAll();
+
+	if(count($result) == 0) {
+		return "Couldn't find id";
+	}
+
+	$pass = $result[0]['pass'];
+
+	if (makeHash(makeHash(MASTER_PASS)) == makeHash($sentPass) || makeHash($sentPass) == $pass) {
+		$edit = $dbh->prepare("UPDATE `" .TABLE_NAME ."` SET `content` = :content WHERE `id` == :id");
+		$edit->bindValue(':content', $newContent, PDO::PARAM_STR);
+		$edit->bindParam(':id', $id, PDO::PARAM_INT);
+		$edit->execute();
+		return "success";
+	}
+
+	return "pass is wrong";
+}
 
 function read($parentId) {
 	$dbh = getDBH();
-	$stmt = $dbh->prepare("SELECT `id`, `name`, `content`, `date`, `children` FROM `" .TABLE_NAME ."` "
-			."WHERE `parent` == :parent");
+	$stmt = $dbh->prepare("SELECT `id`, `name`, `content`, `date`, `children` FROM `" .TABLE_NAME ."`"
+			." WHERE `parent` == :parent "
+			." ORDER BY `date` DESC ");
 	$stmt->bindParam(':parent', $parentId, PDO::PARAM_INT);
 	$stmt->execute();
 	$result = $stmt->fetchAll();
@@ -63,7 +119,6 @@ function read($parentId) {
 		.": " .htmlspecialchars($result[$i]['content']) ." (" .$modifiedDate .")";
 		$resp[$i]['children'] = filter_var($result[$i]['children'], FILTER_VALIDATE_BOOLEAN);
 	}
-	
 	return $resp;
 }
 
@@ -71,6 +126,15 @@ function read($parentId) {
 function write($parentId, $name, $pass, $type, $content) {	
 	try {
 		$dbh = getDBH();
+
+		//update parent's children
+		if($parentId > 0) {
+			$stmt = $dbh->prepare("UPDATE `" .TABLE_NAME ."` SET `children` = :children WHERE `id` == :id");
+			$stmt->bindValue(':children', true, PDO::PARAM_BOOL);
+			$stmt->bindParam(':id', $parentId, PDO::PARAM_INT);
+			$stmt->execute();
+		}
+
 		$stmt = $dbh->prepare("INSERT INTO `" .TABLE_NAME ."` (parent, name, pass, type, content, children, date)"
 				."VALUES (:parent, :name, :pass, :type, :content, :children, datetime('now'))");
 		$stmt->bindParam(':parent', $parentId, PDO::PARAM_INT);
@@ -80,18 +144,7 @@ function write($parentId, $name, $pass, $type, $content) {
 		$stmt->bindParam(':content', $content, PDO::PARAM_STR);
 		$stmt->bindValue(':children', false, PDO::PARAM_BOOL);
 		$stmt->execute();
-		
-		//update parent's children
-		if($parentId > 0) {
-			$stmt = $dbh->prepare("UPDATE `" .TABLE_NAME ."` SET `children` = :children WHERE `id` == :id");
-			$stmt->bindValue(':children', true, PDO::PARAM_BOOL);
-			$stmt->bindParam(':id', $parentId, PDO::PARAM_INT);
-			$stmt->execute();
-		}
 	} catch ( PDOException $e ) {
-		print "error:" . $e->getMessage () . "<br/>";
-		die ();
-	} catch (Exception $e) {
 		print "error:" . $e->getMessage () . "<br/>";
 		die ();
 	}
