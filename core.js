@@ -1,4 +1,3 @@
-//TODO reopen should refresh
 $(function () {
     $('#root').jstree({
         'core': {
@@ -36,6 +35,17 @@ $(function () {
                             var inst = $.jstree.reference(data.reference),
                                 obj = inst.get_node(data.reference);
                             inst.edit(obj, null, editNode);
+                        }
+                    },
+                    "refresh": {
+                        "separator_before": false,
+                        "separator_after": false,
+                        "_disabled": false,
+                        "label": "Refresh",
+                        "action": function (data) {
+                            var inst = $.jstree.reference(data.reference),
+                                obj = inst.get_node(data.reference);
+                            $('#root').jstree().refresh_node(obj);
                         }
                     }
                 };
