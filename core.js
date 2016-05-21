@@ -9,7 +9,7 @@ $(function () {
             }
         },
         contextmenu: {
-            items: function (o, cb) { // Could be an object directly
+            items: function (o, cb) {
                 var menu = {
                     "comment": {
                         "separator_before": false,
@@ -18,7 +18,7 @@ $(function () {
                         "label": "Comment",
                         "icon": "icon-speech",
                         "action": function (data) {
-                            write(data, 'comment');
+                            write(data, 'comment', 'icon-speech');
                         }
                     },
                     "link": {
@@ -28,19 +28,29 @@ $(function () {
                         "label": "Link",
                         "icon": "icon-link",
                         "action": function (data) {
-                            write(data, 'link');
+                            write(data, 'link', 'icon-link');
                         }
                     },
-                    "edit": {
+                    "thread": {
+                        "separator_before": false,
+                        "separator_after": true,
+                        "_disabled": false,
+                        "label": "Thread",
+                        "icon": "icon-book-open",
+                        "action": function (data) {
+                            write(data, 'thread', 'icon-book-open');
+                        }
+                    },
+                    "disable": {
                         "separator_before": false,
                         "separator_after": false,
                         "_disabled": false,
-                        "label": "Edit",
-                        "icon": "icon-pencil",
+                        "label": "Disable",
+                        "icon": "icon-ban",
                         "action": function (data) {
                             var inst = $.jstree.reference(data.reference),
                                 obj = inst.get_node(data.reference);
-                            inst.edit(obj, null, editNode);
+                            disableNode(obj);
                         }
                     },
                     "refresh": {
@@ -57,7 +67,27 @@ $(function () {
                     }
                 };
                 if (o.id === "0") {
-                    delete menu.edit;
+                    delete menu.disable;
+                }
+                if (o.icon == "icon-ban") {
+                    delete menu.disable;
+                }
+                if (o.icon == "icon-book-open") {
+                    delete menu.disable;
+                    menu.thread.submenu = {
+                        "disable": {
+                            "separator_before": false,
+                            "separator_after": false,
+                            "_disabled": false,
+                            "label": "Force Disable",
+                            "icon": "icon-fire",
+                            "action": function (data) {
+                                var inst = $.jstree.reference(data.reference),
+                                    obj = inst.get_node(data.reference);
+                                disableNode(obj);
+                            }
+                        }
+                    }
                 }
                 return menu;
             }
@@ -75,7 +105,7 @@ $(function () {
                 window.open(href, '_blank');
             }
         }
-    });;
+    });
 });
 
 //load
@@ -84,14 +114,9 @@ $(function () {
     $("#password").val(localStorage.getItem("pass"));
 });
 
-var write = function (data, action) {
+var write = function (data, action, icon) {
     var inst = $.jstree.reference(data.reference),
         obj = inst.get_node(data.reference);
-
-    var icon = 'icon-speech';
-    if (action === 'link') {
-        icon = 'icon-link';
-    }
 
     inst.create_node(obj, {"icon" : icon}, "first", function (new_node) {
         setTimeout(function () {
@@ -116,38 +141,35 @@ var makeNewNode = function (node, action) {
             password: makeHash(password)
         },
         function (data) {
-            var inst = $.jstree.reference(node.parent),
-                obj = inst.get_node(node.parent);
-            $('#root').jstree().refresh_node(obj);
-
-            if (data.message != "success") {
-                alert(data.message);
-            }
+            handleResponse(data, node);
         },
         "json"
     );
 };
-var editNode = function (node) {
+var disableNode = function (node) {
     var password = $("#password").val();
     localStorage.setItem('password', password);
     $.post("core.php",
         {
-            action: 'edit',
+            action: 'disable',
             id: node.id,
-            textContent: node.text,
             password: makeHash(password)
         },
         function (data) {
-            var inst = $.jstree.reference(node.parent),
-                obj = inst.get_node(node.parent);
-            $('#root').jstree().refresh_node(obj);
-
-            if (data.message != "success") {
-                alert(data.message);
-            }
+            handleResponse(data, node);
         },
         "json"
     );
+};
+
+var handleResponse = function(data, node) {
+    var inst = $.jstree.reference(node.parent),
+        obj = inst.get_node(node.parent);
+    $('#root').jstree().refresh_node(obj);
+
+    if (data.message != "success") {
+        alert(data.message);
+    }
 };
 
 var makeHash = function (str) {

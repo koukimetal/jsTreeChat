@@ -4,11 +4,13 @@ include_once 'config.php';
 
 $action = $_POST ['action'];
 
-if ($action === 'comment' || $action === 'link') {
+if ($action === 'comment' || $action === 'link' || $action === 'thread') {
 	$parentId = $_POST ['parentId'];
 	$textContent = $_POST ['textContent'];
 	$username = $_POST ['username'];
 	$password = $_POST ['password'];
+
+	$username = nameWithHash($username);
 
 	header ( "Content-Type: application/json; charset=utf-8" );
 	if (invalid($parentId, $textContent)) {
@@ -22,25 +24,33 @@ if ($action === 'comment' || $action === 'link') {
 	$resp['message'] = 'success';
 	echo json_encode($resp);
 	return;
-} else if ($action === 'edit') {
+} else if ($action === 'disable') {
 	$id = $_POST ['id'];
-	$newContent = $_POST ['textContent'];
 	$password = $_POST ['password'];
 
 	header ( "Content-Type: application/json; charset=utf-8" );
 
-	if (invalid($id, $newContent)) {
-		$resp['message'] = "failed, parentId or text are wrong";
+	if (invalid($id)) {
+		$resp['message'] = "failed, id is wrong";
 		echo json_encode($resp);
 		return;
 	}
 
-	$resp['message'] = edit($id, $password, $newContent);
+	$resp['message'] = disableNode($id, $password);
 	echo json_encode($resp);
 	return;
 }
 
-function invalid($id, $content) {
+function nameWithHash($name) {
+	$nwh = explode('#' , $name, 2);
+	if (count($nwh) == 2) {
+		return $nwh[0] .'#' .substr(crypt(makeHash($nwh[1]), TRIP_SALT), -8);
+	} else {
+		return $name;
+	}
+}
+
+function invalid($id, $content = "ok") {
 	return $id < 0 || $content === "";
 }
 
@@ -56,7 +66,7 @@ if (is_numeric ( $parent ) && ctype_digit ( $parent )) {
 	return;
 } else {
 	header ( "Content-Type: application/json; charset=utf-8" );
-	echo '[{ "text" : "root", "id" : "0", "children" : true }]';
+	echo '[{ "text" : "root", "id" : "0", "children" : true, "icon" : "icon-star" }]';
 	return;
 }
 
@@ -74,26 +84,29 @@ function getDBH() {
 	return $dbh;
 }
 
-//TODO implement icon
 //TODO WISH implement search
 
-function edit($id, $sentPass, $newContent) {
+function disableNode($id, $sentPass) {
 	$dbh = getDBH();
-	$stmt = $dbh->prepare("SELECT `id`, `pass` FROM `" .TABLE_NAME ."` "
+	$stmt = $dbh->prepare("SELECT `id`, `pass`, `type` FROM `" .TABLE_NAME ."` "
 		."WHERE `id` == :id");
 	$stmt->bindParam(':id', $id, PDO::PARAM_INT);
 	$stmt->execute();
 	$result = $stmt->fetchAll();
 
-	if(count($result) == 0) {
+	if (count($result) === 0) {
 		return "Couldn't find id";
+	}
+	if ($result[0]['type'] === "thread" && makeHash(makeHash(MASTER_PASS)) !== makeHash($sentPass)) {
+		return "Only master can disable thread";
 	}
 
 	$pass = $result[0]['pass'];
 
-	if (makeHash(makeHash(MASTER_PASS)) == makeHash($sentPass) || makeHash($sentPass) == $pass) {
-		$edit = $dbh->prepare("UPDATE `" .TABLE_NAME ."` SET `content` = :content WHERE `id` == :id");
-		$edit->bindValue(':content', $newContent, PDO::PARAM_STR);
+	if (makeHash(makeHash(MASTER_PASS)) === makeHash($sentPass) || makeHash($sentPass) === $pass) {
+		$edit = $dbh->prepare("UPDATE `" .TABLE_NAME ."` SET `content` = :content, `type` = :type WHERE `id` == :id");
+		$edit->bindValue(':content', '-- disabled --', PDO::PARAM_STR);
+		$edit->bindValue(':type', 'disabled', PDO::PARAM_STR);
 		$edit->bindParam(':id', $id, PDO::PARAM_INT);
 		$edit->execute();
 		return "success";
@@ -122,6 +135,10 @@ function read($parentId) {
 		if ($type === "link") {
 			$resp[$i]['a_attr']['href'] = $result[$i]['content'];
 			$resp[$i]['icon'] = 'icon-link';
+		} else if ($type === "disabled") {
+			$resp[$i]['icon'] = 'icon-ban';
+		} else if ($type === "thread") {
+			$resp[$i]['icon'] = 'icon-book-open';
 		}
 	}
 	return $resp;

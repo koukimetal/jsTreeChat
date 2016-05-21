@@ -19,3 +19,6 @@ define('DATABASE_USER', 'username');
 //password of database
 define('DATABASE_PASS', 'password');
 
+//salt of crypt
+define('TRIP_SALT', 'jstchat');
+
