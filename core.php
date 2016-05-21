@@ -4,7 +4,7 @@ include_once 'config.php';
 
 $action = $_POST ['action'];
 
-if ($action === 'write') {
+if ($action === 'comment' || $action === 'link') {
 	$parentId = $_POST ['parentId'];
 	$textContent = $_POST ['textContent'];
 	$username = $_POST ['username'];
@@ -17,7 +17,7 @@ if ($action === 'write') {
 		return;
 	}
 	
-	write($parentId, $username, $password, 'comment', $textContent);
+	write($parentId, $username, $password, $action, $textContent);
 
 	$resp['message'] = 'success';
 	echo json_encode($resp);
@@ -41,7 +41,7 @@ if ($action === 'write') {
 }
 
 function invalid($id, $content) {
-	return $id < 0 || $content == "";
+	return $id < 0 || $content === "";
 }
 
 $parent = $_GET ['p'];
@@ -74,7 +74,7 @@ function getDBH() {
 	return $dbh;
 }
 
-//TODO implement type
+//TODO implement icon
 //TODO WISH implement search
 
 function edit($id, $sentPass, $newContent) {
@@ -104,7 +104,7 @@ function edit($id, $sentPass, $newContent) {
 
 function read($parentId) {
 	$dbh = getDBH();
-	$stmt = $dbh->prepare("SELECT `id`, `name`, `content`, `date`, `children` FROM `" .TABLE_NAME ."`"
+	$stmt = $dbh->prepare("SELECT `id`, `name`, `content`, `date`, `children`, `type` FROM `" .TABLE_NAME ."`"
 			." WHERE `parent` == :parent "
 			." ORDER BY `date` DESC ");
 	$stmt->bindParam(':parent', $parentId, PDO::PARAM_INT);
@@ -118,6 +118,11 @@ function read($parentId) {
 		$resp[$i]['text'] = htmlspecialchars($result[$i]['name'])
 		.": " .htmlspecialchars($result[$i]['content']) ." (" .$modifiedDate .")";
 		$resp[$i]['children'] = filter_var($result[$i]['children'], FILTER_VALIDATE_BOOLEAN);
+		$type = $result[$i]['type'];
+		if ($type === "link") {
+			$resp[$i]['a_attr']['href'] = $result[$i]['content'];
+			$resp[$i]['icon'] = 'icon-link';
+		}
 	}
 	return $resp;
 }
@@ -135,7 +140,7 @@ function write($parentId, $name, $pass, $type, $content) {
 			$stmt->execute();
 		}
 
-		$stmt = $dbh->prepare("INSERT INTO `" .TABLE_NAME ."` (parent, name, pass, type, content, children, date)"
+		$stmt = $dbh->prepare("INSERT INTO `" .TABLE_NAME ."` (`parent`, `name`, `pass`, `type`, `content`, `children`, `date`)"
 				."VALUES (:parent, :name, :pass, :type, :content, :children, datetime('now'))");
 		$stmt->bindParam(':parent', $parentId, PDO::PARAM_INT);
 		$stmt->bindParam(':name', $name, PDO::PARAM_STR);
