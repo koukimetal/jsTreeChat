@@ -108,10 +108,13 @@ $(function () {
     });
 });
 
+var JSTREECHAT_NAME = "jsTreeChatName";
+var JSTREECHAT_PASS = "jsTreeChatPass";
+
 //load
 $(function () {
-    $("#username").val(localStorage.getItem("name"));
-    $("#password").val(localStorage.getItem("pass"));
+    $("#username").val(localStorage.getItem(JSTREECHAT_NAME));
+    $("#password").val(localStorage.getItem(JSTREECHAT_PASS));
 });
 
 var write = function (data, action, icon) {
@@ -130,8 +133,8 @@ var write = function (data, action, icon) {
 var makeNewNode = function (node, action) {
     var username = $("#username").val();
     var password = $("#password").val();
-    localStorage.setItem('username', username);
-    localStorage.setItem('password', password);
+    localStorage.setItem(JSTREECHAT_NAME, username);
+    localStorage.setItem(JSTREECHAT_PASS, password);
     $.post("core.php",
         {
             action: action,
@@ -148,7 +151,7 @@ var makeNewNode = function (node, action) {
 };
 var disableNode = function (node) {
     var password = $("#password").val();
-    localStorage.setItem('password', password);
+    localStorage.setItem(JSTREECHAT_PASS, password);
     $.post("core.php",
         {
             action: 'disable',
