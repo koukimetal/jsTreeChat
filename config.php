@@ -7,7 +7,7 @@ define('MASTER_PASS', 'masterpassword');
 //timezone
 define('TIME_ZONE', '9');
 
-//name of database
+//name of database, extension should be 'sq3' to deny access from browsers
 define('DATABASE_NAME', 'database.sq3');
 
 //table name of database
