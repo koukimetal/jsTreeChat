@@ -1,6 +1,7 @@
 # jsTreeChat
 Chat using jsTree
 
+[Demo site](http://turtle.matrix.jp/my_services/jsTreeChat/)
 ##How to deploy
 * Open `config.php` and change following parameters
   * MASTER_PASS
